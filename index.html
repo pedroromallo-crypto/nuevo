@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Airplane Shooter - Derriba Aviones</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 100;
+            font-size: 18px;
+        }
+
+        #score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffff00;
+        }
+
+        #startButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            font-size: 24px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            z-index: 101;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        #startButton:hover {
+            background: #ff6666;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 0, 0, 0.8);
+        }
+
+        #crosshair::before {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #crosshair::after {
+            width: 100%;
+            height: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 20px;
+            display: none;
+            z-index: 102;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <div id="info">
+        <div>Puntuación: <span id="score">0</span></div>
+        <div>Aviones derribados: <span id="hits">0</span></div>
+        <div>Tiempo: <span id="time">0</span>s</div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="message"></div>
+    <button id="startButton">Iniciar AR</button>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
+
+        let camera, scene, renderer;
+        let airplanes = [];
+        let score = 0;
+        let hits = 0;
+        let startTime = 0;
+        let isPlaying = false;
+        let raycaster, pointer;
+
+        const container = document.getElementById('container');
+        const startButton = document.getElementById('startButton');
+        const scoreElement = document.getElementById('score');
+        const hitsElement = document.getElementById('hits');
+        const timeElement = document.getElementById('time');
+        const messageElement = document.getElementById('message');
+
+        // Inicializar la escena
+        function init() {
+            // Escena
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Cielo azul
+
+            // Cámara
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.6, 0); // Altura de ojos humanos
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Luces
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 10);
+            scene.add(directionalLight);
+
+            // Raycaster para detectar clics
+            raycaster = new THREE.Raycaster();
+            pointer = new THREE.Vector2(0, 0); // Centro de la pantalla
+
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('click', onShoot);
+            window.addEventListener('touchstart', onShoot);
+
+            startButton.addEventListener('click', startAR);
+        }
+
+        // Crear un avión
+        function createAirplane() {
+            const airplane = new THREE.Group();
+
+            // Cuerpo del avión
+            const bodyGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1.5, 8);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.rotation.z = Math.PI / 2;
+            airplane.add(body);
+
+            // Alas
+            const wingGeometry = new THREE.BoxGeometry(2, 0.05, 0.5);
+            const wingMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
+            const wings = new THREE.Mesh(wingGeometry, wingMaterial);
+            wings.position.y = 0;
+            airplane.add(wings);
+
+            // Cola
+            const tailGeometry = new THREE.BoxGeometry(0.1, 0.5, 0.3);
+            const tailMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
+            const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+            tail.position.x = -0.75;
+            tail.position.y = 0.25;
+            airplane.add(tail);
+
+            // Propulsor (nariz)
+            const noseGeometry = new THREE.ConeGeometry(0.15, 0.3, 8);
+            const noseMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+            const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+            nose.rotation.z = -Math.PI / 2;
+            nose.position.x = 0.9;
+            airplane.add(nose);
+
+            // Posición aleatoria
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 10 + Math.random() * 10;
+            const height = 2 + Math.random() * 8;
+
+            airplane.position.x = Math.cos(angle) * distance;
+            airplane.position.y = height;
+            airplane.position.z = Math.sin(angle) * distance;
+
+            // Rotación para apuntar hacia el centro
+            airplane.lookAt(0, height, 0);
+
+            // Velocidad
+            airplane.userData.velocity = new THREE.Vector3(
+                -Math.cos(angle) * 0.02,
+                0,
+                -Math.sin(angle) * 0.02
+            );
+
+            // Movimiento aleatorio
+            airplane.userData.wobble = {
+                time: Math.random() * 100,
+                speedY: 0.3 + Math.random() * 0.5,
+                speedZ: 0.2 + Math.random() * 0.3,
+                amplitudeY: 0.5,
+                amplitudeZ: 0.3
+            };
+
+            scene.add(airplane);
+            airplanes.push(airplane);
+        }
+
+        // Iniciar AR
+        async function startAR() {
+            if (navigator.xr) {
+                try {
+                    const supported = await navigator.xr.isSessionSupported('immersive-ar');
+                    if (supported) {
+                        const session = await navigator.xr.requestSession('immersive-ar', {
+                            requiredFeatures: ['local-floor']
+                        });
+                        renderer.xr.setSession(session);
+                        startButton.style.display = 'none';
+                        startGame();
+                    } else {
+                        // Si AR no está soportado, iniciar en modo normal
+                        console.log('AR no soportado, iniciando en modo normal');
+                        startButton.style.display = 'none';
+                        startGame();
+                    }
+                } catch (error) {
+                    console.error('Error al iniciar AR:', error);
+                    // Iniciar en modo normal si hay error
+                    startButton.style.display = 'none';
+                    startGame();
+                }
+            } else {
+                // Si WebXR no está disponible, iniciar en modo normal
+                console.log('WebXR no disponible, iniciando en modo normal');
+                startButton.style.display = 'none';
+                startGame();
+            }
+        }
+
+        // Iniciar el juego
+        function startGame() {
+            isPlaying = true;
+            startTime = Date.now();
+
+            // Crear aviones iniciales
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => createAirplane(), i * 1000);
+            }
+
+            // Generar nuevos aviones periódicamente
+            setInterval(() => {
+                if (isPlaying && airplanes.length < 10) {
+                    createAirplane();
+                }
+            }, 3000);
+        }
+
+        // Disparar
+        function onShoot(event) {
+            if (!isPlaying) return;
+
+            event.preventDefault();
+
+            // Raycaster desde el centro de la pantalla
+            raycaster.setFromCamera(pointer, camera);
+
+            // Detectar intersecciones
+            const intersects = raycaster.intersectObjects(airplanes, true);
+
+            if (intersects.length > 0) {
+                // Encontrar el avión padre
+                let airplane = intersects[0].object;
+                while (airplane.parent && airplane.parent !== scene) {
+                    airplane = airplane.parent;
+                }
+
+                // Eliminar el avión
+                const index = airplanes.indexOf(airplane);
+                if (index > -1) {
+                    airplanes.splice(index, 1);
+                    scene.remove(airplane);
+
+                    // Actualizar puntuación
+                    score += 100;
+                    hits++;
+                    scoreElement.textContent = score;
+                    hitsElement.textContent = hits;
+
+                    // Efecto de explosión (cambiar color brevemente)
+                    showMessage('¡IMPACTO! +100', 500);
+
+                    // Crear un nuevo avión
+                    setTimeout(createAirplane, 2000);
+                }
+            }
+        }
+
+        // Mostrar mensaje temporal
+        function showMessage(text, duration) {
+            messageElement.textContent = text;
+            messageElement.style.display = 'block';
+            setTimeout(() => {
+                messageElement.style.display = 'none';
+            }, duration);
+        }
+
+        // Actualizar aviones
+        function updateAirplanes() {
+            airplanes.forEach((airplane, index) => {
+                // Mover hacia adelante
+                airplane.position.add(airplane.userData.velocity);
+
+                // Movimiento ondulante
+                const wobble = airplane.userData.wobble;
+                wobble.time += 0.01;
+                airplane.position.y += Math.sin(wobble.time * wobble.speedY) * wobble.amplitudeY * 0.01;
+                airplane.rotation.z = Math.sin(wobble.time * wobble.speedZ) * wobble.amplitudeZ * 0.1;
+
+                // Eliminar si está muy lejos o muy cerca
+                const distance = airplane.position.length();
+                if (distance > 50 || distance < 2) {
+                    scene.remove(airplane);
+                    airplanes.splice(index, 1);
+                    // Crear un nuevo avión para reemplazarlo
+                    setTimeout(createAirplane, 1000);
+                }
+            });
+        }
+
+        // Actualizar tiempo
+        function updateTime() {
+            if (isPlaying) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                timeElement.textContent = elapsed;
+            }
+        }
+
+        // Animación
+        function animate() {
+            renderer.setAnimationLoop(() => {
+                updateAirplanes();
+                updateTime();
+                renderer.render(scene, camera);
+            });
+        }
+
+        // Redimensionar ventana
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Iniciar
+        init();
+        animate();
+    </script>
+</body>
+</html>

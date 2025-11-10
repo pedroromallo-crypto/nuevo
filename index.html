@@ -35,11 +35,50 @@
             color: #ffff00;
         }
 
-        #startButton {
+        #startScreen {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 101;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #instructions {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            max-width: 500px;
+        }
+
+        #instructions h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #ff4444;
+        }
+
+        #instructions p {
+            font-size: 18px;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+
+        #instructions .tip {
+            background: rgba(255, 255, 0, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-size: 16px;
+        }
+
+        #startButton {
             padding: 20px 40px;
             font-size: 24px;
             background: #ff4444;
@@ -47,12 +86,13 @@
             border: none;
             border-radius: 10px;
             cursor: pointer;
-            z-index: 101;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.3s;
         }
 
         #startButton:hover {
             background: #ff6666;
+            transform: scale(1.05);
         }
 
         #crosshair {
@@ -113,7 +153,20 @@
 
     <div id="crosshair"></div>
     <div id="message"></div>
-    <button id="startButton">Iniciar AR</button>
+
+    <div id="startScreen">
+        <div id="instructions">
+            <h1>🎯 Derriba los Aviones</h1>
+            <p><strong>OBJETIVO:</strong> Derriba los aviones rojos que vuelan hacia ti</p>
+            <p><strong>CÓMO JUGAR:</strong></p>
+            <p>🖱️ <strong>En PC:</strong></p>
+            <p style="margin-left: 20px;">• Mueve el mouse para apuntar<br>• Arrastra o mantén clic derecho para mirar alrededor<br>• Clic izquierdo para disparar</p>
+            <p>📱 <strong>En móvil:</strong></p>
+            <p style="margin-left: 20px;">• Desliza para mirar alrededor<br>• Toca rápido para disparar a los aviones</p>
+            <p class="tip">💡 Cada avión derribado = 100 puntos. ¡Intenta conseguir la máxima puntuación!</p>
+        </div>
+        <button id="startButton">¡Empezar a Jugar!</button>
+    </div>
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
@@ -126,12 +179,22 @@
         let isPlaying = false;
         let raycaster, pointer;
 
+        // Controles de cámara
+        let cameraRotation = { x: 0, y: 0 };
+        let isMouseDown = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
         const container = document.getElementById('container');
         const startButton = document.getElementById('startButton');
+        const startScreen = document.getElementById('startScreen');
         const scoreElement = document.getElementById('score');
         const hitsElement = document.getElementById('hits');
         const timeElement = document.getElementById('time');
         const messageElement = document.getElementById('message');
+        const crosshair = document.getElementById('crosshair');
+
+        let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
         // Inicializar la escena
         function init() {
@@ -144,10 +207,9 @@
             camera.position.set(0, 1.6, 0); // Altura de ojos humanos
 
             // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.xr.enabled = true;
             container.appendChild(renderer.domElement);
 
             // Luces
@@ -160,14 +222,98 @@
 
             // Raycaster para detectar clics
             raycaster = new THREE.Raycaster();
-            pointer = new THREE.Vector2(0, 0); // Centro de la pantalla
+            pointer = new THREE.Vector2(0, 0); // Centro de la pantalla por defecto
 
             // Event listeners
             window.addEventListener('resize', onWindowResize);
-            window.addEventListener('click', onShoot);
-            window.addEventListener('touchstart', onShoot);
 
-            startButton.addEventListener('click', startAR);
+            if (isMobile) {
+                // En móvil: detectar toque en cualquier parte
+                renderer.domElement.addEventListener('touchstart', onTouchShoot, false);
+                // Controles táctiles para rotar cámara
+                renderer.domElement.addEventListener('touchmove', onTouchMove, false);
+            } else {
+                // En PC: seguir el mouse
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('click', onShoot);
+                // Rotar cámara con botón derecho o arrastre
+                renderer.domElement.addEventListener('mousedown', onMouseDown);
+                renderer.domElement.addEventListener('mouseup', onMouseUp);
+                renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+
+            startButton.addEventListener('click', startGame);
+        }
+
+        // Control de mouse en PC
+        function onMouseDown(event) {
+            if (event.button === 2 || event.button === 0) { // Botón derecho o izquierdo
+                isMouseDown = true;
+                lastMouseX = event.clientX;
+                lastMouseY = event.clientY;
+            }
+        }
+
+        function onMouseUp() {
+            isMouseDown = false;
+        }
+
+        // Mover el puntero y rotar cámara en PC
+        function onMouseMove(event) {
+            // Actualizar puntero para disparar
+            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Mover la mira
+            crosshair.style.left = event.clientX + 'px';
+            crosshair.style.top = event.clientY + 'px';
+            crosshair.style.transform = 'translate(-50%, -50%)';
+
+            // Rotar cámara si el mouse está presionado
+            if (isMouseDown && isPlaying) {
+                const deltaX = event.clientX - lastMouseX;
+                const deltaY = event.clientY - lastMouseY;
+
+                cameraRotation.y -= deltaX * 0.005;
+                cameraRotation.x -= deltaY * 0.005;
+
+                // Limitar rotación vertical
+                cameraRotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraRotation.x));
+
+                lastMouseX = event.clientX;
+                lastMouseY = event.clientY;
+            }
+        }
+
+        // Control táctil para rotar cámara en móvil
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+        let isTouchRotating = false;
+
+        function onTouchMove(event) {
+            if (!isPlaying || event.touches.length !== 1) return;
+
+            event.preventDefault();
+            const touch = event.touches[0];
+
+            if (!isTouchRotating) {
+                lastTouchX = touch.clientX;
+                lastTouchY = touch.clientY;
+                isTouchRotating = true;
+                return;
+            }
+
+            const deltaX = touch.clientX - lastTouchX;
+            const deltaY = touch.clientY - lastTouchY;
+
+            cameraRotation.y -= deltaX * 0.01;
+            cameraRotation.x -= deltaY * 0.01;
+
+            // Limitar rotación vertical
+            cameraRotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraRotation.x));
+
+            lastTouchX = touch.clientX;
+            lastTouchY = touch.clientY;
         }
 
         // Crear un avión
@@ -236,42 +382,57 @@
             airplanes.push(airplane);
         }
 
-        // Iniciar AR
-        async function startAR() {
-            if (navigator.xr) {
-                try {
-                    const supported = await navigator.xr.isSessionSupported('immersive-ar');
-                    if (supported) {
-                        const session = await navigator.xr.requestSession('immersive-ar', {
-                            requiredFeatures: ['local-floor']
-                        });
-                        renderer.xr.setSession(session);
-                        startButton.style.display = 'none';
-                        startGame();
-                    } else {
-                        // Si AR no está soportado, iniciar en modo normal
-                        console.log('AR no soportado, iniciando en modo normal');
-                        startButton.style.display = 'none';
-                        startGame();
-                    }
-                } catch (error) {
-                    console.error('Error al iniciar AR:', error);
-                    // Iniciar en modo normal si hay error
-                    startButton.style.display = 'none';
-                    startGame();
+        // Variables para detectar tap vs drag en móvil
+        let touchStartTime = 0;
+        let touchStartPos = { x: 0, y: 0 };
+
+        // Disparo en móvil (toque directo)
+        function onTouchShoot(event) {
+            if (!isPlaying) return;
+
+            const touch = event.touches[0];
+            touchStartTime = Date.now();
+            touchStartPos.x = touch.clientX;
+            touchStartPos.y = touch.clientY;
+
+            // Agregar listener temporal para touchend
+            const onTouchEnd = (endEvent) => {
+                endEvent.preventDefault();
+                const touchDuration = Date.now() - touchStartTime;
+                const touchEndPos = endEvent.changedTouches[0];
+                const distance = Math.sqrt(
+                    Math.pow(touchEndPos.clientX - touchStartPos.x, 2) +
+                    Math.pow(touchEndPos.clientY - touchStartPos.y, 2)
+                );
+
+                // Si fue un tap rápido (menos de 200ms) y sin mucho movimiento (menos de 10px)
+                if (touchDuration < 200 && distance < 10) {
+                    const touchX = (touchEndPos.clientX / window.innerWidth) * 2 - 1;
+                    const touchY = -(touchEndPos.clientY / window.innerHeight) * 2 + 1;
+
+                    raycaster.setFromCamera(new THREE.Vector2(touchX, touchY), camera);
+                    checkHit();
                 }
-            } else {
-                // Si WebXR no está disponible, iniciar en modo normal
-                console.log('WebXR no disponible, iniciando en modo normal');
-                startButton.style.display = 'none';
-                startGame();
-            }
+
+                isTouchRotating = false;
+                renderer.domElement.removeEventListener('touchend', onTouchEnd);
+            };
+
+            renderer.domElement.addEventListener('touchend', onTouchEnd, { once: true });
         }
 
         // Iniciar el juego
         function startGame() {
             isPlaying = true;
             startTime = Date.now();
+            startScreen.style.display = 'none';
+
+            // Mostrar mira solo en móvil (en el centro)
+            if (isMobile) {
+                crosshair.style.display = 'block';
+            } else {
+                crosshair.style.display = 'block';
+            }
 
             // Crear aviones iniciales
             for (let i = 0; i < 5; i++) {
@@ -286,15 +447,17 @@
             }, 3000);
         }
 
-        // Disparar
+        // Disparar en PC
         function onShoot(event) {
             if (!isPlaying) return;
-
             event.preventDefault();
 
-            // Raycaster desde el centro de la pantalla
             raycaster.setFromCamera(pointer, camera);
+            checkHit();
+        }
 
+        // Verificar impacto
+        function checkHit() {
             // Detectar intersecciones
             const intersects = raycaster.intersectObjects(airplanes, true);
 
@@ -317,7 +480,7 @@
                     scoreElement.textContent = score;
                     hitsElement.textContent = hits;
 
-                    // Efecto de explosión (cambiar color brevemente)
+                    // Efecto de explosión
                     showMessage('¡IMPACTO! +100', 500);
 
                     // Crear un nuevo avión
@@ -366,9 +529,19 @@
             }
         }
 
+        // Actualizar cámara
+        function updateCamera() {
+            if (isPlaying) {
+                camera.rotation.order = 'YXZ';
+                camera.rotation.y = cameraRotation.y;
+                camera.rotation.x = cameraRotation.x;
+            }
+        }
+
         // Animación
         function animate() {
             renderer.setAnimationLoop(() => {
+                updateCamera();
                 updateAirplanes();
                 updateTime();
                 renderer.render(scene, camera);

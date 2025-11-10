@@ -11,6 +11,16 @@
             font-family: Arial, sans-serif;
         }
 
+        #cameraView {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            z-index: -1;
+        }
+
         #container {
             width: 100vw;
             height: 100vh;
@@ -103,6 +113,7 @@
     </style>
 </head>
 <body>
+    <video id="cameraView" autoplay playsinline></video>
     <div id="container"></div>
 
     <div id="info">
@@ -125,6 +136,7 @@
         let startTime = 0;
         let isPlaying = false;
         let raycaster, pointer;
+        let videoElement;
 
         const container = document.getElementById('container');
         const startButton = document.getElementById('startButton');
@@ -132,22 +144,51 @@
         const hitsElement = document.getElementById('hits');
         const timeElement = document.getElementById('time');
         const messageElement = document.getElementById('message');
+        videoElement = document.getElementById('cameraView');
+
+        // Inicializar cámara del dispositivo
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment', // Cámara trasera
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                videoElement.srcObject = stream;
+                videoElement.play();
+                console.log('Cámara iniciada correctamente');
+                return true;
+            } catch (error) {
+                console.error('Error al acceder a la cámara:', error);
+                showMessage('Error: No se puede acceder a la cámara. Por favor, permite el acceso.', 3000);
+                return false;
+            }
+        }
 
         // Inicializar la escena
         function init() {
             // Escena
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB); // Cielo azul
+            // Sin fondo para permitir transparencia y ver la cámara
+            scene.background = null;
 
             // Cámara
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(0, 1.6, 0); // Altura de ojos humanos
 
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            // Renderer con transparencia
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true // Habilitar transparencia
+            });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
+            renderer.domElement.style.position = 'absolute';
+            renderer.domElement.style.top = '0';
+            renderer.domElement.style.left = '0';
             container.appendChild(renderer.domElement);
 
             // Luces
@@ -238,31 +279,48 @@
 
         // Iniciar AR
         async function startAR() {
+            // Primero iniciar la cámara
+            showMessage('Solicitando acceso a la cámara...', 2000);
+            const cameraStarted = await initCamera();
+
+            if (!cameraStarted) {
+                return; // No continuar si no se puede acceder a la cámara
+            }
+
+            // Pequeña demora para que la cámara se estabilice
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             if (navigator.xr) {
                 try {
                     const supported = await navigator.xr.isSessionSupported('immersive-ar');
                     if (supported) {
+                        showMessage('Iniciando modo AR...', 2000);
                         const session = await navigator.xr.requestSession('immersive-ar', {
-                            requiredFeatures: ['local-floor']
+                            requiredFeatures: ['local-floor'],
+                            optionalFeatures: ['dom-overlay'],
+                            domOverlay: { root: document.body }
                         });
                         renderer.xr.setSession(session);
                         startButton.style.display = 'none';
                         startGame();
                     } else {
-                        // Si AR no está soportado, iniciar en modo normal
-                        console.log('AR no soportado, iniciando en modo normal');
+                        // Si AR no está soportado, iniciar en modo normal con cámara
+                        console.log('AR no soportado, iniciando en modo normal con cámara');
+                        showMessage('Modo AR no disponible. Usando cámara estándar.', 2000);
                         startButton.style.display = 'none';
                         startGame();
                     }
                 } catch (error) {
                     console.error('Error al iniciar AR:', error);
+                    showMessage('Error al iniciar AR. Usando cámara estándar.', 2000);
                     // Iniciar en modo normal si hay error
                     startButton.style.display = 'none';
                     startGame();
                 }
             } else {
-                // Si WebXR no está disponible, iniciar en modo normal
-                console.log('WebXR no disponible, iniciando en modo normal');
+                // Si WebXR no está disponible, iniciar en modo normal con cámara
+                console.log('WebXR no disponible, iniciando en modo normal con cámara');
+                showMessage('WebXR no disponible. Usando cámara estándar.', 2000);
                 startButton.style.display = 'none';
                 startGame();
             }

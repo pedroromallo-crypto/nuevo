@@ -74,6 +74,7 @@
             height: 40px;
             pointer-events: none;
             z-index: 99;
+            transition: transform 0.15s ease-out, filter 0.15s ease-out;
         }
 
         #crosshair::before,
@@ -128,6 +129,7 @@
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
+        import { DeviceOrientationControls } from 'https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/controls/DeviceOrientationControls.js';
 
         let camera, scene, renderer;
         let airplanes = [];
@@ -137,6 +139,7 @@
         let isPlaying = false;
         let raycaster, pointer;
         let videoElement;
+        let controls; // Controles de orientación
 
         const container = document.getElementById('container');
         const startButton = document.getElementById('startButton');
@@ -145,6 +148,28 @@
         const timeElement = document.getElementById('time');
         const messageElement = document.getElementById('message');
         videoElement = document.getElementById('cameraView');
+
+        // Solicitar permisos de sensores de movimiento (requerido en iOS 13+)
+        async function requestMotionPermission() {
+            if (typeof DeviceOrientationEvent !== 'undefined' &&
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission === 'granted') {
+                        console.log('Permisos de orientación concedidos');
+                        return true;
+                    } else {
+                        showMessage('Se necesitan permisos de sensores de movimiento', 3000);
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Error al solicitar permisos de orientación:', error);
+                    return false;
+                }
+            }
+            // Si no requiere permisos explícitos (Android), retornar true
+            return true;
+        }
 
         // Inicializar cámara del dispositivo
         async function initCamera() {
@@ -203,6 +228,10 @@
             raycaster = new THREE.Raycaster();
             pointer = new THREE.Vector2(0, 0); // Centro de la pantalla
 
+            // Inicializar controles de orientación del dispositivo
+            controls = new DeviceOrientationControls(camera);
+            controls.connect();
+
             // Event listeners
             window.addEventListener('resize', onWindowResize);
             window.addEventListener('click', onShoot);
@@ -215,34 +244,46 @@
         function createAirplane() {
             const airplane = new THREE.Group();
 
-            // Cuerpo del avión
-            const bodyGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1.5, 8);
-            const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+            // Cuerpo del avión (más grande y más visible)
+            const bodyGeometry = new THREE.CylinderGeometry(0.25, 0.25, 2.5, 8);
+            const bodyMaterial = new THREE.MeshPhongMaterial({
+                color: 0xff0000,
+                emissive: 0x330000 // Luz propia para mayor visibilidad
+            });
             const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
             body.rotation.z = Math.PI / 2;
             airplane.add(body);
 
-            // Alas
-            const wingGeometry = new THREE.BoxGeometry(2, 0.05, 0.5);
-            const wingMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
+            // Alas (más grandes)
+            const wingGeometry = new THREE.BoxGeometry(3.5, 0.08, 0.8);
+            const wingMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffff00,
+                emissive: 0x333300
+            });
             const wings = new THREE.Mesh(wingGeometry, wingMaterial);
             wings.position.y = 0;
             airplane.add(wings);
 
-            // Cola
-            const tailGeometry = new THREE.BoxGeometry(0.1, 0.5, 0.3);
-            const tailMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
+            // Cola (más grande)
+            const tailGeometry = new THREE.BoxGeometry(0.15, 0.8, 0.5);
+            const tailMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffff00,
+                emissive: 0x333300
+            });
             const tail = new THREE.Mesh(tailGeometry, tailMaterial);
-            tail.position.x = -0.75;
-            tail.position.y = 0.25;
+            tail.position.x = -1.25;
+            tail.position.y = 0.4;
             airplane.add(tail);
 
-            // Propulsor (nariz)
-            const noseGeometry = new THREE.ConeGeometry(0.15, 0.3, 8);
-            const noseMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+            // Propulsor (nariz) más grande
+            const noseGeometry = new THREE.ConeGeometry(0.25, 0.5, 8);
+            const noseMaterial = new THREE.MeshPhongMaterial({
+                color: 0x333333,
+                emissive: 0x111111
+            });
             const nose = new THREE.Mesh(noseGeometry, noseMaterial);
             nose.rotation.z = -Math.PI / 2;
-            nose.position.x = 0.9;
+            nose.position.x = 1.5;
             airplane.add(nose);
 
             // Posición aleatoria
@@ -285,6 +326,14 @@
 
             if (!cameraStarted) {
                 return; // No continuar si no se puede acceder a la cámara
+            }
+
+            // Solicitar permisos de sensores de movimiento
+            showMessage('Solicitando permisos de sensores...', 2000);
+            const motionPermission = await requestMotionPermission();
+
+            if (!motionPermission) {
+                showMessage('⚠️ Sin sensores de movimiento. Usa el modo táctil.', 3000);
             }
 
             // Pequeña demora para que la cámara se estabilice
@@ -344,6 +393,60 @@
             }, 3000);
         }
 
+        // Crear efecto de explosión
+        function createExplosion(position) {
+            const explosionGroup = new THREE.Group();
+
+            // Crear partículas de explosión
+            for (let i = 0; i < 12; i++) {
+                const particleGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+                const particleMaterial = new THREE.MeshPhongMaterial({
+                    color: Math.random() > 0.5 ? 0xff6600 : 0xffff00,
+                    emissive: 0xff3300
+                });
+                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+
+                // Velocidad aleatoria para cada partícula
+                particle.userData.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.3,
+                    (Math.random() - 0.5) * 0.3,
+                    (Math.random() - 0.5) * 0.3
+                );
+
+                explosionGroup.add(particle);
+            }
+
+            explosionGroup.position.copy(position);
+            scene.add(explosionGroup);
+
+            // Animar explosión
+            let frame = 0;
+            const explosionInterval = setInterval(() => {
+                frame++;
+                explosionGroup.children.forEach(particle => {
+                    particle.position.add(particle.userData.velocity);
+                    particle.scale.multiplyScalar(0.9);
+                });
+
+                if (frame > 20) {
+                    clearInterval(explosionInterval);
+                    scene.remove(explosionGroup);
+                }
+            }, 30);
+        }
+
+        // Pulsar cruz de mira
+        function pulseCrosshair(hit) {
+            const crosshair = document.getElementById('crosshair');
+            crosshair.style.transform = 'translate(-50%, -50%) scale(1.5)';
+            crosshair.style.filter = hit ? 'drop-shadow(0 0 10px #00ff00)' : 'drop-shadow(0 0 5px #ff0000)';
+
+            setTimeout(() => {
+                crosshair.style.transform = 'translate(-50%, -50%) scale(1)';
+                crosshair.style.filter = 'none';
+            }, 150);
+        }
+
         // Disparar
         function onShoot(event) {
             if (!isPlaying) return;
@@ -366,6 +469,9 @@
                 // Eliminar el avión
                 const index = airplanes.indexOf(airplane);
                 if (index > -1) {
+                    // Crear explosión en la posición del avión
+                    createExplosion(airplane.position);
+
                     airplanes.splice(index, 1);
                     scene.remove(airplane);
 
@@ -375,12 +481,16 @@
                     scoreElement.textContent = score;
                     hitsElement.textContent = hits;
 
-                    // Efecto de explosión (cambiar color brevemente)
-                    showMessage('¡IMPACTO! +100', 500);
+                    // Efectos visuales
+                    pulseCrosshair(true);
+                    showMessage('¡IMPACTO! 💥 +100', 500);
 
                     // Crear un nuevo avión
                     setTimeout(createAirplane, 2000);
                 }
+            } else {
+                // Fallo - feedback visual
+                pulseCrosshair(false);
             }
         }
 
@@ -427,6 +537,11 @@
         // Animación
         function animate() {
             renderer.setAnimationLoop(() => {
+                // Actualizar controles de orientación
+                if (controls) {
+                    controls.update();
+                }
+
                 updateAirplanes();
                 updateTime();
                 renderer.render(scene, camera);

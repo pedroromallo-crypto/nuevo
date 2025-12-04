@@ -3,388 +3,263 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Airplane Shooter - Derriba Aviones</title>
+    <title>Instrucciones - Sistema de Role-Play</title>
     <style>
-        body {
+        * {
             margin: 0;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        #container {
-            width: 100vw;
-            height: 100vh;
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        .slideshow-container {
+            max-width: 900px;
+            width: 90%;
             position: relative;
         }
 
-        #info {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: white;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border-radius: 10px;
-            z-index: 100;
-            font-size: 18px;
-        }
-
-        #score {
-            font-size: 24px;
-            font-weight: bold;
-            color: #ffff00;
-        }
-
-        #startButton {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            padding: 20px 40px;
-            font-size: 24px;
-            background: #ff4444;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            z-index: 101;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-
-        #startButton:hover {
-            background: #ff6666;
-        }
-
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            pointer-events: none;
-            z-index: 99;
-        }
-
-        #crosshair::before,
-        #crosshair::after {
-            content: '';
-            position: absolute;
-            background: rgba(255, 0, 0, 0.8);
-        }
-
-        #crosshair::before {
-            width: 2px;
-            height: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        #crosshair::after {
-            width: 100%;
-            height: 2px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-
-        #message {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px 40px;
-            border-radius: 10px;
-            font-size: 20px;
+        .slide {
             display: none;
-            z-index: 102;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-height: 300px;
+        }
+
+        .slide.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-number {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 15px;
+        }
+
+        .slide-content {
+            font-size: 20px;
+            line-height: 1.8;
+        }
+
+        .slide-content strong {
+            color: #4fc3f7;
+        }
+
+        .slide-content a {
+            color: #81d4fa;
+            text-decoration: none;
+        }
+
+        .slide-content a:hover {
+            text-decoration: underline;
+        }
+
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-btn {
+            background: rgba(79, 195, 247, 0.2);
+            border: 2px solid #4fc3f7;
+            color: white;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            background: #4fc3f7;
+            color: #1a1a2e;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .dots-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .dot.active {
+            background: #4fc3f7;
+            transform: scale(1.2);
+        }
+
+        .dot:hover {
+            background: rgba(79, 195, 247, 0.6);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+            color: #4fc3f7;
+        }
+
+        .icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            display: block;
         }
     </style>
 </head>
 <body>
-    <div id="container"></div>
+    <div class="slideshow-container">
+        <h1>Instrucciones de Uso</h1>
 
-    <div id="info">
-        <div>Puntuación: <span id="score">0</span></div>
-        <div>Aviones derribados: <span id="hits">0</span></div>
-        <div>Tiempo: <span id="time">0</span>s</div>
+        <div class="slide active">
+            <span class="icon">⏳</span>
+            <div class="slide-number">Paso 1 de 7</div>
+            <div class="slide-content">
+                Deja que cargue totalmente la página hasta que aparezca a la izquierda un personaje con el texto <strong>Chat now</strong>.
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="icon">🎤</span>
+            <div class="slide-number">Paso 2 de 7</div>
+            <div class="slide-content">
+                Activa micrófono (y cámara si deseas que te corrijan el training).
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="icon">🌐</span>
+            <div class="slide-number">Paso 3 de 7</div>
+            <div class="slide-content">
+                Busca un lugar sin mucho ruido de fondo, <strong>elija un idioma</strong> y pulsa "<strong>Chat now</strong>". En unos segundos aparecerá una pantalla más grande cargando.
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="icon">👋</span>
+            <div class="slide-number">Paso 4 de 7</div>
+            <div class="slide-content">
+                Espera a que le salude el avatar. <strong>Cuando el avatar le salude pregúntele: ¿Qué problemas tiene? Así se iniciará la conversación.</strong>
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="icon">💬</span>
+            <div class="slide-number">Paso 5 de 7</div>
+            <div class="slide-content">
+                Durante esos 10 minutos de conversación puedes interrumpir las veces que lo desees los comentarios del avatar o dando al botón del teléfono colgar la conversación.
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="icon">📹</span>
+            <div class="slide-number">Paso 6 de 7</div>
+            <div class="slide-content">
+                Puedes marcar la cámara o el sonido o NO. Si has marcado la cámara, se generará un fichero mp4 en su escritorio que puedes enviarnos a <a href="mailto:federico.montilla@creverat.com">federico.montilla@creverat.com</a> para que te enviemos nuestros comentarios.
+            </div>
+        </div>
+
+        <div class="slide">
+            <span class="icon">🙏</span>
+            <div class="slide-number">Paso 7 de 7</div>
+            <div class="slide-content">
+                Muchas gracias por probar nuestro sistema avanzado de role-play.
+            </div>
+        </div>
+
+        <div class="navigation">
+            <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)">← Anterior</button>
+            <div class="dots-container" id="dotsContainer"></div>
+            <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)">Siguiente →</button>
+        </div>
     </div>
 
-    <div id="crosshair"></div>
-    <div id="message"></div>
-    <button id="startButton">Iniciar AR</button>
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+        const dotsContainer = document.getElementById('dotsContainer');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
 
-    <script type="module">
-        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
-
-        let camera, scene, renderer;
-        let airplanes = [];
-        let score = 0;
-        let hits = 0;
-        let startTime = 0;
-        let isPlaying = false;
-        let raycaster, pointer;
-
-        const container = document.getElementById('container');
-        const startButton = document.getElementById('startButton');
-        const scoreElement = document.getElementById('score');
-        const hitsElement = document.getElementById('hits');
-        const timeElement = document.getElementById('time');
-        const messageElement = document.getElementById('message');
-
-        // Inicializar la escena
-        function init() {
-            // Escena
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB); // Cielo azul
-
-            // Cámara
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 1.6, 0); // Altura de ojos humanos
-
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.xr.enabled = true;
-            container.appendChild(renderer.domElement);
-
-            // Luces
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(10, 20, 10);
-            scene.add(directionalLight);
-
-            // Raycaster para detectar clics
-            raycaster = new THREE.Raycaster();
-            pointer = new THREE.Vector2(0, 0); // Centro de la pantalla
-
-            // Event listeners
-            window.addEventListener('resize', onWindowResize);
-            window.addEventListener('click', onShoot);
-            window.addEventListener('touchstart', onShoot);
-
-            startButton.addEventListener('click', startAR);
+        // Crear indicadores de puntos
+        for (let i = 0; i < totalSlides; i++) {
+            const dot = document.createElement('span');
+            dot.classList.add('dot');
+            if (i === 0) dot.classList.add('active');
+            dot.onclick = () => goToSlide(i);
+            dotsContainer.appendChild(dot);
         }
 
-        // Crear un avión
-        function createAirplane() {
-            const airplane = new THREE.Group();
-
-            // Cuerpo del avión
-            const bodyGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1.5, 8);
-            const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            body.rotation.z = Math.PI / 2;
-            airplane.add(body);
-
-            // Alas
-            const wingGeometry = new THREE.BoxGeometry(2, 0.05, 0.5);
-            const wingMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
-            const wings = new THREE.Mesh(wingGeometry, wingMaterial);
-            wings.position.y = 0;
-            airplane.add(wings);
-
-            // Cola
-            const tailGeometry = new THREE.BoxGeometry(0.1, 0.5, 0.3);
-            const tailMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
-            const tail = new THREE.Mesh(tailGeometry, tailMaterial);
-            tail.position.x = -0.75;
-            tail.position.y = 0.25;
-            airplane.add(tail);
-
-            // Propulsor (nariz)
-            const noseGeometry = new THREE.ConeGeometry(0.15, 0.3, 8);
-            const noseMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
-            const nose = new THREE.Mesh(noseGeometry, noseMaterial);
-            nose.rotation.z = -Math.PI / 2;
-            nose.position.x = 0.9;
-            airplane.add(nose);
-
-            // Posición aleatoria
-            const angle = Math.random() * Math.PI * 2;
-            const distance = 10 + Math.random() * 10;
-            const height = 2 + Math.random() * 8;
-
-            airplane.position.x = Math.cos(angle) * distance;
-            airplane.position.y = height;
-            airplane.position.z = Math.sin(angle) * distance;
-
-            // Rotación para apuntar hacia el centro
-            airplane.lookAt(0, height, 0);
-
-            // Velocidad
-            airplane.userData.velocity = new THREE.Vector3(
-                -Math.cos(angle) * 0.02,
-                0,
-                -Math.sin(angle) * 0.02
-            );
-
-            // Movimiento aleatorio
-            airplane.userData.wobble = {
-                time: Math.random() * 100,
-                speedY: 0.3 + Math.random() * 0.5,
-                speedZ: 0.2 + Math.random() * 0.3,
-                amplitudeY: 0.5,
-                amplitudeZ: 0.3
-            };
-
-            scene.add(airplane);
-            airplanes.push(airplane);
-        }
-
-        // Iniciar AR
-        async function startAR() {
-            if (navigator.xr) {
-                try {
-                    const supported = await navigator.xr.isSessionSupported('immersive-ar');
-                    if (supported) {
-                        const session = await navigator.xr.requestSession('immersive-ar', {
-                            requiredFeatures: ['local-floor']
-                        });
-                        renderer.xr.setSession(session);
-                        startButton.style.display = 'none';
-                        startGame();
-                    } else {
-                        // Si AR no está soportado, iniciar en modo normal
-                        console.log('AR no soportado, iniciando en modo normal');
-                        startButton.style.display = 'none';
-                        startGame();
-                    }
-                } catch (error) {
-                    console.error('Error al iniciar AR:', error);
-                    // Iniciar en modo normal si hay error
-                    startButton.style.display = 'none';
-                    startGame();
-                }
-            } else {
-                // Si WebXR no está disponible, iniciar en modo normal
-                console.log('WebXR no disponible, iniciando en modo normal');
-                startButton.style.display = 'none';
-                startGame();
-            }
-        }
-
-        // Iniciar el juego
-        function startGame() {
-            isPlaying = true;
-            startTime = Date.now();
-
-            // Crear aviones iniciales
-            for (let i = 0; i < 5; i++) {
-                setTimeout(() => createAirplane(), i * 1000);
-            }
-
-            // Generar nuevos aviones periódicamente
-            setInterval(() => {
-                if (isPlaying && airplanes.length < 10) {
-                    createAirplane();
-                }
-            }, 3000);
-        }
-
-        // Disparar
-        function onShoot(event) {
-            if (!isPlaying) return;
-
-            event.preventDefault();
-
-            // Raycaster desde el centro de la pantalla
-            raycaster.setFromCamera(pointer, camera);
-
-            // Detectar intersecciones
-            const intersects = raycaster.intersectObjects(airplanes, true);
-
-            if (intersects.length > 0) {
-                // Encontrar el avión padre
-                let airplane = intersects[0].object;
-                while (airplane.parent && airplane.parent !== scene) {
-                    airplane = airplane.parent;
-                }
-
-                // Eliminar el avión
-                const index = airplanes.indexOf(airplane);
-                if (index > -1) {
-                    airplanes.splice(index, 1);
-                    scene.remove(airplane);
-
-                    // Actualizar puntuación
-                    score += 100;
-                    hits++;
-                    scoreElement.textContent = score;
-                    hitsElement.textContent = hits;
-
-                    // Efecto de explosión (cambiar color brevemente)
-                    showMessage('¡IMPACTO! +100', 500);
-
-                    // Crear un nuevo avión
-                    setTimeout(createAirplane, 2000);
-                }
-            }
-        }
-
-        // Mostrar mensaje temporal
-        function showMessage(text, duration) {
-            messageElement.textContent = text;
-            messageElement.style.display = 'block';
-            setTimeout(() => {
-                messageElement.style.display = 'none';
-            }, duration);
-        }
-
-        // Actualizar aviones
-        function updateAirplanes() {
-            airplanes.forEach((airplane, index) => {
-                // Mover hacia adelante
-                airplane.position.add(airplane.userData.velocity);
-
-                // Movimiento ondulante
-                const wobble = airplane.userData.wobble;
-                wobble.time += 0.01;
-                airplane.position.y += Math.sin(wobble.time * wobble.speedY) * wobble.amplitudeY * 0.01;
-                airplane.rotation.z = Math.sin(wobble.time * wobble.speedZ) * wobble.amplitudeZ * 0.1;
-
-                // Eliminar si está muy lejos o muy cerca
-                const distance = airplane.position.length();
-                if (distance > 50 || distance < 2) {
-                    scene.remove(airplane);
-                    airplanes.splice(index, 1);
-                    // Crear un nuevo avión para reemplazarlo
-                    setTimeout(createAirplane, 1000);
-                }
+        function showSlide(index) {
+            slides.forEach((slide, i) => {
+                slide.classList.remove('active');
+                dotsContainer.children[i].classList.remove('active');
             });
+
+            slides[index].classList.add('active');
+            dotsContainer.children[index].classList.add('active');
+
+            // Actualizar estado de botones
+            prevBtn.disabled = index === 0;
+            nextBtn.disabled = index === totalSlides - 1;
         }
 
-        // Actualizar tiempo
-        function updateTime() {
-            if (isPlaying) {
-                const elapsed = Math.floor((Date.now() - startTime) / 1000);
-                timeElement.textContent = elapsed;
+        function changeSlide(direction) {
+            currentSlide += direction;
+            if (currentSlide < 0) currentSlide = 0;
+            if (currentSlide >= totalSlides) currentSlide = totalSlides - 1;
+            showSlide(currentSlide);
+        }
+
+        function goToSlide(index) {
+            currentSlide = index;
+            showSlide(currentSlide);
+        }
+
+        // Navegación con teclado
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                changeSlide(1);
+            } else if (e.key === 'ArrowLeft') {
+                changeSlide(-1);
             }
-        }
+        });
 
-        // Animación
-        function animate() {
-            renderer.setAnimationLoop(() => {
-                updateAirplanes();
-                updateTime();
-                renderer.render(scene, camera);
-            });
-        }
-
-        // Redimensionar ventana
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // Iniciar
-        init();
-        animate();
+        // Inicializar
+        showSlide(0);
     </script>
 </body>
 </html>
